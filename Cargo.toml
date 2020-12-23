@@ -1,5 +1,5 @@
 [package]
-name = "code_deploy_tool"
+name = "DeployTool"
 version = "0.1.0"
 authors = ["rookie <gb880327@189.cn>"]
 edition = "2018"

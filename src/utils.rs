@@ -1,11 +1,12 @@
+use std::env::consts::OS as target_os;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Command, Stdio};
+
 use indicatif::{ProgressBar, ProgressStyle};
 use ssh2::*;
-use std::env::consts::OS as target_os;
 
 #[derive(Clone)]
 pub struct SshUtil {

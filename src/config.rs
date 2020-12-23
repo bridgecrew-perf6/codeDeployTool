@@ -61,7 +61,8 @@ impl Config {
 
     pub fn read_config(path: String) -> Config {
         let mut buffer = String::new();
-        File::open(path).unwrap().read_to_string(&mut buffer).unwrap();
+        File::open(path).expect("配置文件读取错误！")
+            .read_to_string(&mut buffer).unwrap();
         let doc = Yaml::from(&*buffer);
 
         let mut servers: Vec<Server> = Vec::new();
