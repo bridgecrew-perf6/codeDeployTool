@@ -1,7 +1,11 @@
+extern crate regex;
+
 use std::fs::File;
 use std::io::Read;
 
+use regex::{Regex, Replacer};
 use rusty_yaml::Yaml;
+
 
 #[derive(Debug)]
 pub struct Config {
@@ -27,6 +31,8 @@ pub struct Project {
     pub deploy_before_cmd: Vec<String>,
     pub deploy_after_cmd: Vec<String>,
 }
+
+
 impl Config {
     fn get_str(yaml: &Yaml, name: String) -> String {
         yaml.get_section(name).unwrap().to_string()
@@ -42,9 +48,15 @@ impl Config {
         }
         x
     }
-    fn get_vec(yaml: &Yaml, name: String) -> Vec<String> {
+    fn replace_with_reg(reg: Regex, value:String, replace:String)-> String{
+        reg.replace_all(&*value, replace.as_str()).to_string()
+    }
+    fn get_vec(yaml: &Yaml, name: String, target_name:String, remote_dir: String) -> Vec<String> {
         let doc = yaml.get_section(name).unwrap().to_string();
-        doc.split("\n").map(|x| Config::replace_str(x.parse().unwrap())).collect()
+        doc.split("\n").map(|x| Config::replace_str(x.parse().unwrap()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{targetName\})").unwrap(),x.clone(), target_name.clone()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{remoteDir\})").unwrap(),x.clone(), remote_dir.clone()))
+            .collect()
     }
 
     pub fn read_config(path: String) -> Config {
@@ -79,8 +91,8 @@ impl Config {
                     let remote_dir = Config::get_str(&project_item, "remoteDir".to_string());
                     let target_name = Config::get_str(&project_item, "targetName".to_string());
                     let deploy_cmd = project_item.get_section("deployCmd").unwrap();
-                    let deploy_before_cmd = Config::get_vec(&deploy_cmd, "before".to_string());
-                    let deploy_after_cmd = Config::get_vec(&deploy_cmd, "after".to_string());
+                    let deploy_before_cmd = Config::get_vec(&deploy_cmd, "before".to_string(), target_name.clone(), remote_dir.clone());
+                    let deploy_after_cmd = Config::get_vec(&deploy_cmd, "after".to_string(),target_name.clone(), remote_dir.clone());
                     projects.push(Project { label, source_dir, remote_dir, target_name, deploy_before_cmd, deploy_after_cmd });
                 }
             }

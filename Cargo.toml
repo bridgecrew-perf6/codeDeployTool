@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 ssh2 = "0.9.0"
+regex = "1.4.2"
 rusty-yaml = "0.4.3"
 indicatif = "0.15.0"
 dialoguer = "0.7.1"

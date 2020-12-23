@@ -1,16 +1,17 @@
 use std::path::Path;
 use std::process::exit;
 use dialoguer::{MultiSelect, Select};
-
 use crate::config::{Config, Project, Server};
 use crate::utils;
 use dialoguer::theme::{ColorfulTheme};
+use dialoguer::console::Term;
 
 pub struct DeployUtil {
     pub cmd: utils::CmdUtil,
     pub ssh: utils::SshUtil,
     pub servers: Vec<Server>,
     pub projects: Vec<Project>,
+    pub term: Term,
 }
 
 impl DeployUtil {
@@ -20,7 +21,8 @@ impl DeployUtil {
         let config = Config::read_config(config_path);
         let servers = config.servers;
         let projects = config.projects;
-        DeployUtil { cmd, ssh, servers, projects }
+        let term = Term::stdout();
+        DeployUtil { cmd, ssh, servers, projects, term }
     }
 
     fn status(&mut self, code: i32) {
@@ -30,27 +32,32 @@ impl DeployUtil {
     }
 
     fn deploy(&mut self, project: &Project, server: &Server) {
-        let source_dir = project.source_dir.clone();
-        self.cmd = utils::CmdUtil { current_dir: source_dir };
-        let mut code = 0;
-        for cmd in &project.deploy_before_cmd {
-            code = self.cmd.exec(String::from(cmd));
-            self.status(code);
-        }
+        self.term.write_line(&*format!("{} 部署开始！", server.label)).unwrap();
         self.ssh.login_with_pwd(server.host.clone(), server.port, server.user.clone(), server.password.clone());
         let file_path = Path::new(&project.source_dir).join(&project.target_name);
         let target_path = Path::new(&project.remote_dir);
         self.ssh.check_dir(target_path);
-        println!("开始文件上传！");
         self.ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path());
-
+        let mut code = 0;
         std::fs::remove_file(file_path).unwrap();
         for cmd in &project.deploy_after_cmd {
             code = self.ssh.exec(String::from(cmd));
             self.status(code);
         }
+        self.term.write_line(&*format!("{} 部署完成！", server.label)).unwrap();
     }
 
+    fn before_deploy(&mut self, project: &Project){
+        self.term.write_line("开始部署前置操作").unwrap();
+        let source_dir = project.source_dir.clone();
+        self.cmd.change_path(source_dir);
+        let mut code = 0;
+        for cmd in &project.deploy_before_cmd {
+            code = self.cmd.exec(String::from(cmd));
+            self.status(code);
+        }
+        self.term.write_line("完成部署前置操作!").unwrap();
+    }
     fn choose_project_and_server(projects: &Vec<Project>, servers: &Vec<Server>) -> (usize, Vec<usize>) {
         let mut items: Vec<String> = Vec::new();
         for i in 0..projects.len() {
@@ -78,6 +85,9 @@ impl DeployUtil {
         let servers = self.servers.to_vec();
         let (project_index, server_index) = DeployUtil::choose_project_and_server(&projects, &servers);
         let project = projects.get(project_index).unwrap();
+
+        self.before_deploy(project);
+
         for index in server_index {
             self.deploy(project, servers.get(index).unwrap());
         }

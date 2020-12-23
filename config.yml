@@ -1,10 +1,5 @@
 # 服务器配置
 server:
-  server1:
-    host: 192.168.22.113
-    port: 22
-    user: root
-    password: 1
   test_server:
     host: 192.168.22.113
     port: 22
@@ -18,11 +13,11 @@ project:
     deployCmd:
       before:
         - mvn clean compile package -DskipTests -Pbeta
-        - cp ./target/qidianre-1.0-SNAPSHOT.jar ./qidianre-1.0-SNAPSHOT.jar
+        - cp ./target/{targetName} ./{targetName}
       after:
-        - mv /root/app/qidianre-1.0-SNAPSHOT.jar /root/app/youqu.jar
+        - mv {remoteDir}/{targetName} {remoteDir}/youqu.jar
         - ps -ef|grep youqu.jar | awk '!/grep/ {print $2}' | xargs kill -9 >/dev/null 2>&1
-        - nohup java -jar /root/app/youqu.jar >> /root/app/out.log 2>&1 &
+        - nohup java -jar {remoteDir}/youqu.jar >> {remoteDir}/out.log 2>&1 &
   quartz:
     sourceDir: /Volumes/Workspace/CodeRepository/qidianre-java/quartz
     remoteDir: /root/app
@@ -30,8 +25,8 @@ project:
     deployCmd:
       before:
         - mvn clean compile package -DskipTests -Pbeta
-        - cp ./target/quartz-1.0-SNAPSHOT.jar ./quartz-1.0-SNAPSHOT.jar
+        - cp ./target/{targetName} ./{targetName}
       after:
-        - mv /root/app/quartz-1.0-SNAPSHOT.jar /root/app/quartz.jar
-        - ps -ef|grep quartz.jar | awk '!/grep/ {print $2}' | xargs kill -9 >/dev/null 2>&1
-        - nohup java -jar /root/app/quartz.jar >> /root/app/out.log 2>&1 &
+        - mv {remoteDir}/{targetName} {remoteDir}/youqu.jar
+        - ps -ef|grep youqu.jar | awk '!/grep/ {print $2}' | xargs kill -9 >/dev/null 2>&1
+        - nohup java -jar {remoteDir}/youqu.jar >> {remoteDir}/out.log 2>&1 &

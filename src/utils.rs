@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use indicatif::{ProgressBar, ProgressStyle};
 use ssh2::*;
+use std::env::consts::OS as target_os;
 
 #[derive(Clone)]
 pub struct SshUtil {
@@ -23,6 +24,7 @@ impl SshUtil {
         let tcp = TcpStream::connect(server).unwrap();
         self.session.set_tcp_stream(tcp);
         self.session.set_compress(true);
+        self.session.set_timeout(30 * 1000);
         self.session.handshake().unwrap();
     }
     pub fn login_with_pwd(&mut self, host: String, port: i64, name: String, password: String) {
@@ -35,7 +37,7 @@ impl SshUtil {
     }
 
     pub fn exec(&mut self, cmd: String) -> i32 {
-        println!("执行命令：{}", cmd);
+        writeln!(std::io::stdout(), "执行命令：{}", cmd).unwrap();
         let mut channel = self.session.channel_session().unwrap();
         channel.exec(&cmd).expect("shell执行出错！");
         let mut result = String::new();
@@ -51,6 +53,7 @@ impl SshUtil {
     }
 
     pub fn upload_file(&mut self, file_path: &Path, remote_path: &Path) {
+        writeln!(std::io::stdout(), "开始文件上传！").unwrap();
         let mut fs = match File::open(file_path) {
             Ok(file) => file,
             Err(e) => panic!("{}", e.to_string())
@@ -109,11 +112,19 @@ impl CmdUtil {
     }
 
     pub fn exec(&self, cmd: String) -> i32 {
-        println!("执行命令：{}", cmd);
-        let mut out = match self.current_dir.len() {
-            0 => Command::new("sh").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("-c").arg(cmd).spawn().unwrap(),
-            _ => Command::new("sh").current_dir(&self.current_dir).stdin(Stdio::piped()).stdout(Stdio::piped()).arg("-c").arg(cmd).spawn().unwrap()
-        };
+        writeln!(std::io::stdout(), "执行命令：{}", cmd).unwrap();
+        let mut out;
+        if cfg!(target_os = "windows") {
+            out = match self.current_dir.len() {
+                0 => Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap(),
+                _ => Command::new("cmd").current_dir(&self.current_dir).stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap()
+            };
+        } else {
+            out = match self.current_dir.len() {
+                0 => Command::new("sh").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("-c").arg(cmd).spawn().unwrap(),
+                _ => Command::new("sh").current_dir(&self.current_dir).stdin(Stdio::piped()).stdout(Stdio::piped()).arg("-c").arg(cmd).spawn().unwrap()
+            };
+        }
         let mut buf_reader = BufReader::new(out.stdout.take().unwrap());
         let mut line = String::new();
         loop {
@@ -124,5 +135,4 @@ impl CmdUtil {
         };
         out.wait().unwrap().code().unwrap()
     }
-
 }
