@@ -25,16 +25,12 @@ impl SshUtil {
         let tcp = TcpStream::connect(server).unwrap();
         self.session.set_tcp_stream(tcp);
         self.session.set_compress(true);
-        self.session.set_timeout(30 * 1000);
+        self.session.set_timeout(30000);
         self.session.handshake().unwrap();
     }
     pub fn login_with_pwd(&mut self, host: String, port: i64, name: String, password: String) {
         self.init(host, port);
-        self.session.userauth_password(&name, &password).unwrap();
-        match self.session.authenticated() {
-            true => writeln!(std::io::stdout(), "服务器登陆成功！").unwrap(),
-            false => writeln!(std::io::stdout(), "服务器登陆失败！").unwrap()
-        }
+        self.session.userauth_password(&name, &password).expect("服务器登陆失败！");
     }
 
     pub fn exec(&mut self, cmd: String) -> i32 {
@@ -60,7 +56,7 @@ impl SshUtil {
             Err(e) => panic!("{}", e.to_string())
         };
         let len = fs.metadata().unwrap().len();
-        let remote_file = self.session.scp_send(remote_path, 0o644, len, None);
+        let remote_file = self.session.scp_send(remote_path, 0o644, len.clone(), None);
         match remote_file {
             Err(e) => (),
             _ => {
@@ -70,7 +66,7 @@ impl SshUtil {
                 }) as usize];
                 let mut remote_file = remote_file.unwrap();
 
-                let pb = ProgressBar::new(len);
+                let pb = ProgressBar::new(fs.metadata().unwrap().len());
                 pb.set_style(ProgressStyle::default_bar()
                     .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})\n{msg}")
                     .progress_chars("#>-"));
@@ -118,7 +114,9 @@ impl CmdUtil {
         if cfg!(target_os = "windows") {
             out = match self.current_dir.len() {
                 0 => Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap(),
-                _ => Command::new("cmd").current_dir(&self.current_dir).stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap()
+                _ => {
+                    Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap()
+                }
             };
         } else {
             out = match self.current_dir.len() {

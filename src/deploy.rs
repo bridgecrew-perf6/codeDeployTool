@@ -3,7 +3,6 @@ use std::process::exit;
 use dialoguer::{MultiSelect, Select};
 use crate::config::{Config, Project, Server};
 use crate::utils;
-use dialoguer::theme::{ColorfulTheme};
 use dialoguer::console::Term;
 
 pub struct DeployUtil {
@@ -33,7 +32,7 @@ impl DeployUtil {
 
     fn deploy(&mut self, project: &Project, server: &Server) {
         self.term.write_line(&*format!("{} 部署开始！", server.label)).unwrap();
-        self.ssh.login_with_pwd(server.host.clone(), server.port, server.user.clone(), server.password.clone());
+        self.ssh.login_with_pwd(server.host.clone(), server.port.clone(), server.user.clone(), server.password.clone());
         let file_path = Path::new(&project.source_dir).join(&project.target_name);
         let target_path = Path::new(&project.remote_dir);
         self.ssh.check_dir(target_path);
@@ -63,8 +62,7 @@ impl DeployUtil {
         for i in 0..projects.len() {
             items.push(format!("{}\n", projects.get(i).unwrap().label));
         }
-        let theme = ColorfulTheme::default();
-        let select_project = Select::with_theme(&theme).items(&items).default(0)
+        let select_project = Select::new().items(&items).default(0)
             .with_prompt("请选择需要部署的项目(默认选择第一个)").interact().unwrap();
 
         let mut select_server: Vec<usize> = Vec::new();
@@ -72,7 +70,7 @@ impl DeployUtil {
         for i in 0..servers.len() {
             items.push(format!("{}", servers.get(i).unwrap().label));
         }
-        let select: Vec<usize> = MultiSelect::with_theme(&theme).items(&items).with_prompt("请选择需要部署的项目(默认选择第一个)")
+        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择需要部署的项目(默认选择第一个)")
             .defaults(vec![true].as_slice()).interact().unwrap();
         for i in select {
             select_server.push(i);

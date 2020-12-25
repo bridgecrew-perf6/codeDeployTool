@@ -2,8 +2,7 @@ extern crate regex;
 
 use std::fs::File;
 use std::io::Read;
-
-use regex::{Regex, Replacer};
+use regex::{Regex};
 use rusty_yaml::Yaml;
 
 
@@ -35,7 +34,7 @@ pub struct Project {
 
 impl Config {
     fn get_str(yaml: &Yaml, name: String) -> String {
-        yaml.get_section(name).unwrap().to_string()
+        Config::replace_str(yaml.get_section(name).unwrap().to_string())
     }
     fn get_int(yaml: &Yaml, name: String) -> i64 {
         yaml.get_section(name).unwrap().to_string().parse().unwrap()
