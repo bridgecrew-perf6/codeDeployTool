@@ -16,7 +16,7 @@ fn main() {
         let mut config_path = env::current_exe().unwrap();
         config_path.pop();
         let arg: String = config_path.to_str().unwrap().parse().unwrap();
-        path = match arg.contains("debug") {
+        path = match arg.contains("/target/debug") {
             true => Path::new(env!("CARGO_MANIFEST_DIR")).join("config.yml").to_str().unwrap().parse().unwrap(),
             false => Path::new(&arg).join("config.yml").to_str().unwrap().parse().unwrap()
         }

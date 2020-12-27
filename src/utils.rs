@@ -58,7 +58,7 @@ impl SshUtil {
         let len = fs.metadata().unwrap().len();
         let remote_file = self.session.scp_send(remote_path, 0o644, len.clone(), None);
         match remote_file {
-            Err(e) => (),
+            Err(_e) => (),
             _ => {
                 let mut buf = vec![0; (match len <= 1000 {
                     true => len,
@@ -88,8 +88,8 @@ impl SshUtil {
     pub fn check_dir(&mut self, path: &Path) {
         let sftp = self.session.sftp().unwrap();
         match sftp.stat(path) {
-            Err(e) => sftp.mkdir(path, 0o644).unwrap(),
-            Ok(stat) => ()
+            Err(_e) => sftp.mkdir(path, 0o644).unwrap(),
+            Ok(_stat) => ()
         };
     }
 }
