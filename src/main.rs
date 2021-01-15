@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::env::consts::OS as target_os;
 
 mod utils;
 mod config;
@@ -16,7 +17,7 @@ fn main() {
         let mut config_path = env::current_exe().unwrap();
         config_path.pop();
         let arg: String = config_path.to_str().unwrap().parse().unwrap();
-        path = match arg.contains("/target/debug") {
+        path = match arg.contains(if cfg!(target_os = "windows") { "\\target\\debug" } else { "/target/debug" }) {
             true => Path::new(env!("CARGO_MANIFEST_DIR")).join("config.yml").to_str().unwrap().parse().unwrap(),
             false => Path::new(&arg).join("config.yml").to_str().unwrap().parse().unwrap()
         }

@@ -51,6 +51,7 @@ impl DeployUtil {
         let source_dir = project.source_dir.clone();
         self.cmd.change_path(source_dir);
         let mut code = 0;
+
         for cmd in &project.deploy_before_cmd {
             code = self.cmd.exec(String::from(cmd));
             self.status(code);
@@ -70,8 +71,7 @@ impl DeployUtil {
         for i in 0..servers.len() {
             items.push(format!("{}", servers.get(i).unwrap().label));
         }
-        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择需要部署的项目(默认选择第一个)")
-            .defaults(vec![true].as_slice()).interact().unwrap();
+        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择需要部署的项目").interact().unwrap();
         for i in select {
             select_server.push(i);
         }

@@ -55,6 +55,7 @@ impl Config {
         doc.split("\n").map(|x| Config::replace_str(x.parse().unwrap()))
             .map(|x| Config::replace_with_reg(Regex::new(r"(\{targetName\})").unwrap(),x.clone(), target_name.clone()))
             .map(|x| Config::replace_with_reg(Regex::new(r"(\{remoteDir\})").unwrap(),x.clone(), remote_dir.clone()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{sourceDir\})").unwrap(),x.clone(), remote_dir.clone()))
             .collect()
     }
 

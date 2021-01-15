@@ -115,6 +115,7 @@ impl CmdUtil {
             out = match self.current_dir.len() {
                 0 => Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap(),
                 _ => {
+                    //TODO 无法先切换到指定目录在执行命令
                     Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn().unwrap()
                 }
             };
