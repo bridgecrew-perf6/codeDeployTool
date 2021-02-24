@@ -37,10 +37,9 @@ impl DeployUtil {
         let target_path = Path::new(&project.remote_dir);
         self.ssh.check_dir(target_path);
         self.ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path());
-        let mut code = 0;
         std::fs::remove_file(file_path).unwrap();
         for cmd in &project.deploy_after_cmd {
-            code = self.ssh.exec(String::from(cmd));
+            let code = self.ssh.exec(String::from(cmd));
             self.status(code);
         }
         self.term.write_line(&*format!("{} 部署完成！", server.label)).unwrap();
@@ -50,10 +49,8 @@ impl DeployUtil {
         self.term.write_line("开始部署前置操作").unwrap();
         let source_dir = project.source_dir.clone();
         self.cmd.change_path(source_dir);
-        let mut code = 0;
-
         for cmd in &project.deploy_before_cmd {
-            code = self.cmd.exec(String::from(cmd));
+            let code = self.cmd.exec(String::from(cmd));
             self.status(code);
         }
         self.term.write_line("完成部署前置操作!").unwrap();
@@ -71,7 +68,7 @@ impl DeployUtil {
         for i in 0..servers.len() {
             items.push(format!("{}", servers.get(i).unwrap().label));
         }
-        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择需要部署的项目").interact().unwrap();
+        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择目标服务器").interact().unwrap();
         for i in select {
             select_server.push(i);
         }

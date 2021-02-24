@@ -1,4 +1,3 @@
-use std::env::consts::OS as target_os;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
@@ -127,10 +126,17 @@ impl CmdUtil {
         }
         let mut buf_reader = BufReader::new(out.stdout.take().unwrap());
         let mut line = String::new();
+        let get_last_line = |lines: String| -> String {
+            let array: Vec<&str> = lines.split("\n").collect();
+            match array.len() {
+                0 => lines,
+                _ => array.get(array.len() - 2).unwrap().to_string()
+            }
+        };
         loop {
             match buf_reader.read_line(&mut line) {
                 Ok(0) => break,
-                _ => write!(std::io::stdout(), "{}", &line).unwrap()
+                _ => writeln!(std::io::stdout(), "{}", get_last_line(line.clone())).unwrap()
             };
         };
         out.wait().unwrap().code().unwrap()

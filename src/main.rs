@@ -1,6 +1,5 @@
 use std::env;
 use std::path::Path;
-use std::env::consts::OS as target_os;
 
 mod utils;
 mod config;

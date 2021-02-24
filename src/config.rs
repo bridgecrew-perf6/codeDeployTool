@@ -41,6 +41,7 @@ impl Config {
     }
     fn replace_str(mut x: String) -> String {
         x = x.replace("- ", "");
+        x = x.replace("\\\\","\\");
         if x.starts_with("\"") {
             x.remove(0);
             x.remove(x.len() - 1);
