@@ -1,10 +1,15 @@
 # 服务器配置
+private_key: /Users/rookie/.ssh/id_rsa
 server:
   test_server:
     host: 192.168.22.113
     port: 22
     user: root
     password: 1
+  aliyun:
+    host: 39.108.99.240
+    port: 18922
+    user: root
 project:
   back:
     sourceDir: /Volumes/Workspace/CodeRepository/qidianre-java/back
@@ -15,18 +20,4 @@ project:
         - mvn clean compile package -DskipTests -Pbeta
         - cp ./target/{targetName} ./{targetName}
       after:
-        - mv {remoteDir}/{targetName} {remoteDir}/youqu.jar
-        - ps -ef|grep youqu.jar | awk '!/grep/ {print $2}' | xargs kill -9 >/dev/null 2>&1
-        - nohup java -jar {remoteDir}/youqu.jar >> {remoteDir}/out.log 2>&1 &
-  quartz:
-    sourceDir: /Volumes/Workspace/CodeRepository/qidianre-java/quartz
-    remoteDir: /root/app
-    targetName: quartz-1.0-SNAPSHOT.jar
-    deployCmd:
-      before:
-        - mvn clean compile package -DskipTests -Pbeta
-        - cp ./target/{targetName} ./{targetName}
-      after:
-        - mv {remoteDir}/{targetName} {remoteDir}/youqu.jar
-        - ps -ef|grep youqu.jar | awk '!/grep/ {print $2}' | xargs kill -9 >/dev/null 2>&1
-        - nohup java -jar {remoteDir}/youqu.jar >> {remoteDir}/out.log 2>&1 &
+        - ls

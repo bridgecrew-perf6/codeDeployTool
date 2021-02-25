@@ -5,8 +5,10 @@ authors = ["rookie <gb880327@189.cn>"]
 edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
+anyhow = "1.0.38"
 ssh2 = "0.9.1"
 regex = "1.4.2"
 rusty-yaml = "0.4.3"
 indicatif = "0.15.0"
 dialoguer = "0.7.1"
+console = "0.14.0"

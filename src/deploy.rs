@@ -1,60 +1,78 @@
 use std::path::Path;
 use std::process::exit;
+
+use anyhow::{anyhow, Result};
 use dialoguer::{MultiSelect, Select};
+use console::style;
+use console::Term;
+
 use crate::config::{Config, Project, Server};
 use crate::utils;
-use dialoguer::console::Term;
+use crate::utils::SshUtil;
 
 pub struct DeployUtil {
     pub cmd: utils::CmdUtil,
-    pub ssh: utils::SshUtil,
-    pub servers: Vec<Server>,
-    pub projects: Vec<Project>,
+    pub config: Config,
     pub term: Term,
 }
 
 impl DeployUtil {
     pub fn new(config_path: String) -> DeployUtil {
         let cmd = utils::CmdUtil::new();
-        let ssh = utils::SshUtil::new();
         let config = Config::read_config(config_path);
-        let servers = config.servers;
-        let projects = config.projects;
         let term = Term::stdout();
-        DeployUtil { cmd, ssh, servers, projects, term }
+
+        DeployUtil { cmd, config, term }
     }
 
-    fn status(&mut self, code: i32) {
-        if code == 1 || code == 2 || code == 126 || code == 127 || code == 128 {
-            panic!("命令执行错误！");
+    fn login_server(&mut self, host: &String, port: &i64, user: &String, password: &String) -> Result<SshUtil> {
+        match SshUtil::new(host.clone(), port.clone()) {
+            Ok(mut ssh) => {
+                match self.config.private_key.is_empty() {
+                    true => {
+                        ssh.login_with_pwd(user.clone(), password.clone())?;
+                    }
+                    false => {
+                        let private_key = Path::new(&self.config.private_key);
+                        ssh.login_with_pubkey(user.clone(), private_key)?;
+                    }
+                }
+                Ok(ssh)
+            }
+            Err(err) => Err(anyhow!(err.to_string()))
         }
     }
 
-    fn deploy(&mut self, project: &Project, server: &Server) {
-        self.term.write_line(&*format!("{} 部署开始！", server.label)).unwrap();
-        self.ssh.login_with_pwd(server.host.clone(), server.port.clone(), server.user.clone(), server.password.clone());
-        let file_path = Path::new(&project.source_dir).join(&project.target_name);
-        let target_path = Path::new(&project.remote_dir);
-        self.ssh.check_dir(target_path);
-        self.ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path());
-        std::fs::remove_file(file_path).unwrap();
-        for cmd in &project.deploy_after_cmd {
-            let code = self.ssh.exec(String::from(cmd));
-            self.status(code);
+    fn deploy(&mut self, project: &Project, server: &Server) -> Result<()> {
+        self.term.write_line(&format!("{} 部署开始！", server.label))?;
+        match self.login_server(&server.host, &server.port, &server.user, &server.password) {
+            Err(err) => Err(anyhow!(err.to_string())),
+            Ok(mut ssh) => {
+                let file_path = Path::new(&project.source_dir).join(&project.target_name);
+                let target_path = Path::new(&project.remote_dir);
+                ssh.check_dir(target_path)?;
+                ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path())?;
+                std::fs::remove_file(file_path)?;
+                for cmd in &project.deploy_after_cmd {
+                    ssh.exec(String::from(cmd))?;
+                }
+                self.term.write_line(&format!("{} 部署完成！", server.label))?;
+                Ok(())
+            }
         }
-        self.term.write_line(&*format!("{} 部署完成！", server.label)).unwrap();
     }
 
-    fn before_deploy(&mut self, project: &Project){
-        self.term.write_line("开始部署前置操作").unwrap();
+    fn before_deploy(&mut self, project: &Project) -> Result<()> {
+        self.term.write_line("开始部署前置操作")?;
         let source_dir = project.source_dir.clone();
         self.cmd.change_path(source_dir);
         for cmd in &project.deploy_before_cmd {
-            let code = self.cmd.exec(String::from(cmd));
-            self.status(code);
+            self.cmd.exec(String::from(cmd))?;
         }
-        self.term.write_line("完成部署前置操作!").unwrap();
+        self.term.write_line("完成部署前置操作!")?;
+        Ok(())
     }
+
     fn choose_project_and_server(projects: &Vec<Project>, servers: &Vec<Server>) -> (usize, Vec<usize>) {
         let mut items: Vec<String> = Vec::new();
         for i in 0..projects.len() {
@@ -68,23 +86,36 @@ impl DeployUtil {
         for i in 0..servers.len() {
             items.push(format!("{}", servers.get(i).unwrap().label));
         }
-        let select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择目标服务器").interact().unwrap();
+        let mut select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择目标服务器").interact().unwrap();
+        while select.is_empty() {
+            select = MultiSelect::new().items(&items).with_prompt("请选择目标服务器").interact().unwrap();
+        }
         for i in select {
             select_server.push(i);
         }
         (select_project, select_server)
     }
 
-    pub fn run(&mut self) {
-        let projects = self.projects.to_vec();
-        let servers = self.servers.to_vec();
+    pub fn run(&mut self) -> Result<()> {
+        let projects = self.config.projects.to_vec();
+        let servers = self.config.servers.to_vec();
         let (project_index, server_index) = DeployUtil::choose_project_and_server(&projects, &servers);
         let project = projects.get(project_index).unwrap();
 
-        self.before_deploy(project);
+        match self.before_deploy(project) {
+            Err(err) => self.term.write_line(&style(format!("{}", err.to_string())).red().cyan().to_string())?,
+            Ok(()) => {}
+        };
 
         for index in server_index {
-            self.deploy(project, servers.get(index).unwrap());
+            let server = servers.get(index).unwrap();
+            match self.deploy(project, server) {
+                Err(err) => {
+                    self.term.write_line(&style(format!("服务器 {} 部署失败！({})", &server.label, err.to_string())).red().cyan().to_string())?;
+                    continue;
+                }
+                Ok(()) => {}
+            }
         }
         exit(0);
     }

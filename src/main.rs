@@ -22,5 +22,5 @@ fn main() {
         }
     }
     let mut deploy = deploy::DeployUtil::new(path);
-    deploy.run();
+    deploy.run().unwrap();
 }

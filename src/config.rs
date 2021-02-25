@@ -10,6 +10,7 @@ use rusty_yaml::Yaml;
 pub struct Config {
     pub servers: Vec<Server>,
     pub projects: Vec<Project>,
+    pub private_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -34,29 +35,32 @@ pub struct Project {
 
 impl Config {
     fn get_str(yaml: &Yaml, name: String) -> String {
-        Config::replace_str(yaml.get_section(name).unwrap().to_string())
+        match yaml.has_section(name.clone()) {
+            true => Config::replace_str(yaml.get_section(name).unwrap().to_string()),
+            false => "".to_string()
+        }
     }
     fn get_int(yaml: &Yaml, name: String) -> i64 {
         yaml.get_section(name).unwrap().to_string().parse().unwrap()
     }
     fn replace_str(mut x: String) -> String {
         x = x.replace("- ", "");
-        x = x.replace("\\\\","\\");
+        x = x.replace("\\\\", "\\");
         if x.starts_with("\"") {
             x.remove(0);
             x.remove(x.len() - 1);
         }
         x
     }
-    fn replace_with_reg(reg: Regex, value:String, replace:String)-> String{
+    fn replace_with_reg(reg: Regex, value: String, replace: String) -> String {
         reg.replace_all(&*value, replace.as_str()).to_string()
     }
-    fn get_vec(yaml: &Yaml, name: String, target_name:String, remote_dir: String, source_dir: String) -> Vec<String> {
+    fn get_vec(yaml: &Yaml, name: String, target_name: String, remote_dir: String, source_dir: String) -> Vec<String> {
         let doc = yaml.get_section(name).unwrap().to_string();
         doc.split("\n").map(|x| Config::replace_str(x.parse().unwrap()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{targetName\})").unwrap(),x.clone(), target_name.clone()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{remoteDir\})").unwrap(),x.clone(), remote_dir.clone()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{sourceDir\})").unwrap(),x.clone(), source_dir.clone()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{targetName\})").unwrap(), x.clone(), target_name.clone()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{remoteDir\})").unwrap(), x.clone(), remote_dir.clone()))
+            .map(|x| Config::replace_with_reg(Regex::new(r"(\{sourceDir\})").unwrap(), x.clone(), source_dir.clone()))
             .collect()
     }
 
@@ -65,7 +69,10 @@ impl Config {
         File::open(path).expect("配置文件读取错误！")
             .read_to_string(&mut buffer).unwrap();
         let doc = Yaml::from(&*buffer);
-
+        let private_key = match doc.has_section("private_key") {
+            true => doc.get_section("private_key").unwrap().to_string(),
+            false => "".into()
+        };
         let mut servers: Vec<Server> = Vec::new();
         match doc.has_section("server") {
             true => {
@@ -94,12 +101,12 @@ impl Config {
                     let target_name = Config::get_str(&project_item, "targetName".to_string());
                     let deploy_cmd = project_item.get_section("deployCmd").unwrap();
                     let deploy_before_cmd = Config::get_vec(&deploy_cmd, "before".to_string(), target_name.clone(), remote_dir.clone(), source_dir.clone());
-                    let deploy_after_cmd = Config::get_vec(&deploy_cmd, "after".to_string(),target_name.clone(), remote_dir.clone(), source_dir.clone());
+                    let deploy_after_cmd = Config::get_vec(&deploy_cmd, "after".to_string(), target_name.clone(), remote_dir.clone(), source_dir.clone());
                     projects.push(Project { label, source_dir, remote_dir, target_name, deploy_before_cmd, deploy_after_cmd });
                 }
             }
             false => panic!("请添加项目配置信息！")
         };
-        Config { servers, projects }
+        Config { servers, projects, private_key }
     }
 }
