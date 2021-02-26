@@ -3,9 +3,7 @@ use std::process::exit;
 
 use anyhow::{anyhow, Result};
 use dialoguer::{MultiSelect, Select};
-use console::style;
-use console::Term;
-
+use dialoguer::console::{style, Term};
 use crate::config::{Config, Project, Server};
 use crate::utils;
 use crate::utils::SshUtil;

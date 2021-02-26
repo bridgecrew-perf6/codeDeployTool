@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Result};
-use console::Term;
+use dialoguer::console::Term;
 use indicatif::{ProgressBar, ProgressStyle};
 use ssh2::*;
 
