@@ -137,10 +137,9 @@ impl CmdUtil {
         let mut out;
         if cfg!(target_os = "windows") {
             out = match self.current_dir.len() {
-                0 => Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn()?,
+                0 => Command::new("powershell").stdin(Stdio::piped()).stdout(Stdio::piped()).arg(cmd).spawn()?,
                 _ => {
-                    //无法先切换到指定目录在执行命令
-                    Command::new("cmd").stdin(Stdio::piped()).stdout(Stdio::piped()).arg("/c").arg(cmd).spawn()?
+                    Command::new("powershell").current_dir(&self.current_dir).stdin(Stdio::piped()).stdout(Stdio::piped()).arg(cmd).spawn()?
                 }
             };
         } else {
@@ -155,6 +154,8 @@ impl CmdUtil {
             let array: Vec<&str> = lines.split("\n").collect();
             match array.len() {
                 0 => lines,
+                1 => array.get(0).unwrap().to_string(),
+                2 => array.get(1).unwrap().to_string(),
                 _ => array.get(array.len() - 2).unwrap().to_string()
             }
         };

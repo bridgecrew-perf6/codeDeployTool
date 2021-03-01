@@ -5,7 +5,7 @@ mod utils;
 mod config;
 mod deploy;
 
-
+//TODO 配置文件加多个可选项 用rust实现文件复制
 fn main() {
     let args: Vec<String> = env::args().collect();
     let path;

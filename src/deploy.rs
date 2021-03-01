@@ -63,6 +63,11 @@ impl DeployUtil {
     fn before_deploy(&mut self, project: &Project) -> Result<()> {
         self.term.write_line("开始部署前置操作")?;
         let source_dir = project.source_dir.clone();
+        let target_file = Path::new(&source_dir).join(&project.target_name);
+        if target_file.exists() {
+            std::fs::remove_file(target_file)?;
+        }
+
         self.cmd.change_path(source_dir);
         for cmd in &project.deploy_before_cmd {
             self.cmd.exec(String::from(cmd))?;
