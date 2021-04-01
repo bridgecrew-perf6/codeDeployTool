@@ -1,5 +1,4 @@
 # 服务器配置
-private_key: /Users/rookie/.ssh/id_rsa
 server:
   test_server:
     host: 192.168.22.113
@@ -10,6 +9,7 @@ server:
     host: 39.108.99.240
     port: 18922
     user: root
+    private_key: /Users/rookie/.ssh/id_rsa
 project:
   back:
     sourceDir: /Volumes/Workspace/CodeRepository/qidianre-java/back

@@ -10,7 +10,6 @@ use rusty_yaml::Yaml;
 pub struct Config {
     pub servers: Vec<Server>,
     pub projects: Vec<Project>,
-    pub private_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -20,6 +19,7 @@ pub struct Server {
     pub port: i64,
     pub user: String,
     pub password: String,
+    pub private_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -69,10 +69,7 @@ impl Config {
         File::open(path).expect("配置文件读取错误！")
             .read_to_string(&mut buffer).unwrap();
         let doc = Yaml::from(&*buffer);
-        let private_key = match doc.has_section("private_key") {
-            true => doc.get_section("private_key").unwrap().to_string(),
-            false => "".into()
-        };
+
         let mut servers: Vec<Server> = Vec::new();
         match doc.has_section("server") {
             true => {
@@ -81,10 +78,21 @@ impl Config {
                     let label = name.clone();
                     let server_item = server_doc.get_section(name).unwrap();
                     let host = Config::get_str(&server_item, "host".to_string());
-                    let port = Config::get_int(&server_item, "port".to_string());
                     let user = Config::get_str(&server_item, "user".to_string());
-                    let password = Config::get_str(&server_item, "password".to_string());
-                    servers.push(Server { label, host, port, user, password });
+                    let port = match server_item.has_section("port") {
+                        true => Config::get_int(&server_item, "port".to_string()),
+                        false => 0
+                    };
+                    let password = match server_item.has_section("password") {
+                        true => Config::get_str(&server_item, "password".to_string()),
+                        false => "".to_string()
+                    };
+
+                    let private_key = match server_item.has_section("private_key") {
+                        true => Config::get_str(&server_item, "private_key".to_string()),
+                        false => "".into()
+                    };
+                    servers.push(Server { label, host, port, user, password, private_key });
                 }
             }
             false => panic!("请添加服务器配置信息！")
@@ -107,6 +115,6 @@ impl Config {
             }
             false => panic!("请添加项目配置信息！")
         };
-        Config { servers, projects, private_key }
+        Config { servers, projects }
     }
 }

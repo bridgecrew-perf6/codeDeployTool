@@ -23,15 +23,15 @@ impl DeployUtil {
         DeployUtil { cmd, config, term }
     }
 
-    fn login_server(&mut self, host: &String, port: &i64, user: &String, password: &String) -> Result<SshUtil> {
+    fn login_server(&mut self, host: &String, port: &i64, user: &String, password: &String, key_str: &String) -> Result<SshUtil> {
         match SshUtil::new(host.clone(), port.clone()) {
             Ok(mut ssh) => {
-                match self.config.private_key.is_empty() {
+                match key_str.is_empty() {
                     true => {
                         ssh.login_with_pwd(user.clone(), password.clone())?;
                     }
                     false => {
-                        let private_key = Path::new(&self.config.private_key);
+                        let private_key = Path::new(key_str);
                         ssh.login_with_pubkey(user.clone(), private_key)?;
                     }
                 }
@@ -43,7 +43,7 @@ impl DeployUtil {
 
     fn deploy(&mut self, project: &Project, server: &Server) -> Result<()> {
         self.term.write_line(&format!("{} 部署开始！", server.label))?;
-        match self.login_server(&server.host, &server.port, &server.user, &server.password) {
+        match self.login_server(&server.host, &server.port, &server.user, &server.password, &server.private_key) {
             Err(err) => Err(anyhow!(err.to_string())),
             Ok(mut ssh) => {
                 let file_path = Path::new(&project.source_dir).join(&project.target_name);
