@@ -17,7 +17,7 @@ pub struct DeployUtil {
 impl DeployUtil {
     pub fn new(config_path: String) -> DeployUtil {
         let cmd = utils::CmdUtil::new();
-        let config = Config::read_config(config_path);
+        let config = Config::read_config(config_path).unwrap();
         let term = Term::stdout();
 
         DeployUtil { cmd, config, term }
@@ -42,7 +42,7 @@ impl DeployUtil {
     }
 
     fn deploy(&mut self, project: &Project, server: &Server) -> Result<()> {
-        self.term.write_line(&format!("{} 部署开始！", server.label))?;
+        self.term.write_line(&format!("{} 部署开始！", server.name))?;
         match self.login_server(&server.host, &server.port, &server.user, &server.password, &server.private_key) {
             Err(err) => Err(anyhow!(err.to_string())),
             Ok(mut ssh) => {
@@ -51,10 +51,10 @@ impl DeployUtil {
                 ssh.check_dir(target_path)?;
                 ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path())?;
                 std::fs::remove_file(file_path)?;
-                for cmd in &project.deploy_after_cmd {
-                    ssh.exec(String::from(cmd))?;
+                for cmd in &project.deploy_cmd.after {
+                    ssh.exec(Config::replace_reg(cmd.clone(), &project)?)?;
                 }
-                self.term.write_line(&format!("{} 部署完成！", server.label))?;
+                self.term.write_line(&format!("{} 部署完成！", server.name))?;
                 Ok(())
             }
         }
@@ -69,8 +69,8 @@ impl DeployUtil {
         }
 
         self.cmd.change_path(source_dir);
-        for cmd in &project.deploy_before_cmd {
-            self.cmd.exec(String::from(cmd))?;
+        for cmd in &project.deploy_cmd.before {
+            self.cmd.exec(Config::replace_reg(cmd.clone(), &project)?)?;
         }
         self.term.write_line("完成部署前置操作!")?;
         Ok(())
@@ -79,7 +79,7 @@ impl DeployUtil {
     fn choose_project_and_server(projects: &Vec<Project>, servers: &Vec<Server>) -> (usize, Vec<usize>) {
         let mut items: Vec<String> = Vec::new();
         for i in 0..projects.len() {
-            items.push(format!("{}\n", projects.get(i).unwrap().label));
+            items.push(format!("{}\n", projects.get(i).unwrap().name));
         }
         let select_project = Select::new().items(&items).default(0)
             .with_prompt("请选择需要部署的项目(默认选择第一个)").interact().unwrap();
@@ -87,7 +87,7 @@ impl DeployUtil {
         let mut select_server: Vec<usize> = Vec::new();
         items.clear();
         for i in 0..servers.len() {
-            items.push(format!("{}", servers.get(i).unwrap().label));
+            items.push(format!("{}", servers.get(i).unwrap().name));
         }
         let mut select: Vec<usize> = MultiSelect::new().items(&items).with_prompt("请选择目标服务器").interact().unwrap();
         while select.is_empty() {
@@ -114,7 +114,7 @@ impl DeployUtil {
             let server = servers.get(index).unwrap();
             match self.deploy(project, server) {
                 Err(err) => {
-                    self.term.write_line(&style(format!("服务器 {} 部署失败！({})", &server.label, err.to_string())).red().cyan().to_string())?;
+                    self.term.write_line(&style(format!("服务器 {} 部署失败！({})", &server.name, err.to_string())).red().cyan().to_string())?;
                     continue;
                 }
                 Ok(()) => {}

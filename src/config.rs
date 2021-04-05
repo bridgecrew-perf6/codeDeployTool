@@ -1,20 +1,19 @@
 extern crate regex;
 
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Read;
-use regex::{Regex};
-use rusty_yaml::Yaml;
+use anyhow::{anyhow, Result};
+use regex::Regex;
 
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub servers: Vec<Server>,
     pub projects: Vec<Project>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Server {
-    pub label: String,
+    pub name: String,
     pub host: String,
     pub port: i64,
     pub user: String,
@@ -22,99 +21,43 @@ pub struct Server {
     pub private_key: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Project {
-    pub label: String,
+    pub name: String,
     pub source_dir: String,
     pub remote_dir: String,
     pub target_name: String,
-    pub deploy_before_cmd: Vec<String>,
-    pub deploy_after_cmd: Vec<String>,
+    pub deploy_cmd: DeployCmd,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeployCmd {
+    pub before: Vec<String>,
+    pub after: Vec<String>,
 }
 
 
 impl Config {
-    fn get_str(yaml: &Yaml, name: String) -> String {
-        match yaml.has_section(name.clone()) {
-            true => Config::replace_str(yaml.get_section(name).unwrap().to_string()),
-            false => "".to_string()
-        }
-    }
-    fn get_int(yaml: &Yaml, name: String) -> i64 {
-        yaml.get_section(name).unwrap().to_string().parse().unwrap()
-    }
-    fn replace_str(mut x: String) -> String {
-        x = x.replace("- ", "");
-        x = x.replace("\\\\", "\\");
-        if x.starts_with("\"") {
-            x.remove(0);
-            x.remove(x.len() - 1);
-        }
-        x
-    }
-    fn replace_with_reg(reg: Regex, value: String, replace: String) -> String {
-        reg.replace_all(&*value, replace.as_str()).to_string()
-    }
-    fn get_vec(yaml: &Yaml, name: String, target_name: String, remote_dir: String, source_dir: String) -> Vec<String> {
-        let doc = yaml.get_section(name).unwrap().to_string();
-        doc.split("\n").map(|x| Config::replace_str(x.parse().unwrap()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{targetName\})").unwrap(), x.clone(), target_name.clone()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{remoteDir\})").unwrap(), x.clone(), remote_dir.clone()))
-            .map(|x| Config::replace_with_reg(Regex::new(r"(\{sourceDir\})").unwrap(), x.clone(), source_dir.clone()))
-            .collect()
+
+    pub fn replace_reg(cmd: String, project: &Project) -> Result<String> {
+        let mut reg = Regex::new(r"(\{target_name\})")?;
+        let mut value = reg.replace_all(cmd.as_str(), project.target_name.clone().as_str()).to_string();
+        reg = Regex::new(r"(\{remote_dir\})")?;
+        value = reg.replace_all(value.as_str(), project.remote_dir.clone().as_str()).to_string();
+        reg = Regex::new(r"(\{source_dir\})")?;
+        value = reg.replace_all(value.as_str(), project.source_dir.clone().as_str()).to_string();
+        Ok(value)
     }
 
-    pub fn read_config(path: String) -> Config {
-        let mut buffer = String::new();
-        File::open(path).expect("配置文件读取错误！")
-            .read_to_string(&mut buffer).unwrap();
-        let doc = Yaml::from(&*buffer);
-
-        let mut servers: Vec<Server> = Vec::new();
-        match doc.has_section("server") {
-            true => {
-                let server_doc = doc.get_section("server").unwrap();
-                for name in server_doc.get_section_names().unwrap() {
-                    let label = name.clone();
-                    let server_item = server_doc.get_section(name).unwrap();
-                    let host = Config::get_str(&server_item, "host".to_string());
-                    let user = Config::get_str(&server_item, "user".to_string());
-                    let port = match server_item.has_section("port") {
-                        true => Config::get_int(&server_item, "port".to_string()),
-                        false => 0
-                    };
-                    let password = match server_item.has_section("password") {
-                        true => Config::get_str(&server_item, "password".to_string()),
-                        false => "".to_string()
-                    };
-
-                    let private_key = match server_item.has_section("private_key") {
-                        true => Config::get_str(&server_item, "private_key".to_string()),
-                        false => "".into()
-                    };
-                    servers.push(Server { label, host, port, user, password, private_key });
-                }
+    pub fn read_config(path: String) -> Result<Config> {
+        match OpenOptions::new().read(true).open(path) {
+            Ok(mut fs) => {
+                let mut config_str = String::new();
+                fs.read_to_string(&mut config_str)?;
+                let config: Config = toml::from_str(&*config_str)?;
+                Ok(config)
             }
-            false => panic!("请添加服务器配置信息！")
-        };
-        let mut projects: Vec<Project> = Vec::new();
-        match doc.has_section("project") {
-            true => {
-                let project_doc = doc.get_section("project").unwrap();
-                for name in project_doc.get_section_names().unwrap() {
-                    let label = name.clone();
-                    let project_item = project_doc.get_section(name).unwrap();
-                    let source_dir = Config::get_str(&project_item, "sourceDir".to_string());
-                    let remote_dir = Config::get_str(&project_item, "remoteDir".to_string());
-                    let target_name = Config::get_str(&project_item, "targetName".to_string());
-                    let deploy_cmd = project_item.get_section("deployCmd").unwrap();
-                    let deploy_before_cmd = Config::get_vec(&deploy_cmd, "before".to_string(), target_name.clone(), remote_dir.clone(), source_dir.clone());
-                    let deploy_after_cmd = Config::get_vec(&deploy_cmd, "after".to_string(), target_name.clone(), remote_dir.clone(), source_dir.clone());
-                    projects.push(Project { label, source_dir, remote_dir, target_name, deploy_before_cmd, deploy_after_cmd });
-                }
-            }
-            false => panic!("请添加项目配置信息！")
-        };
-        Config { servers, projects }
+            Err(err) => Err(anyhow!(err.to_string()))
+        }
     }
 }
