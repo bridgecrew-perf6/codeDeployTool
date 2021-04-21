@@ -1,13 +1,11 @@
 # 服务器列表
-[[servers]]
-name = 'test_server'
+[server.test_server]
 host = '192.168.22.113'
 port = 22
 user = 'root'
 password = '1'
 private_key = ''
-[[servers]]
-name = 'aliyun'
+[server.aliyun]
 host = '39.108.99.240'
 port = 18922
 user = 'root'
@@ -15,10 +13,13 @@ password = ''
 private_key = '/Users/rookie/.ssh/id_rsa'
 
 # 项目列表
-[[projects]]
-name = 'back'
+[project.back]
 source_dir = '/Volumes/Workspace/CodeRepository/qidianre-java/back'
 remote_dir = '/root/app'
 target_name = 'qidianre-1.0-SNAPSHOT.jar'
-deploy_cmd.before = ['mvn clean compile package -DskipTests -Pbeta', 'cp ./target/{target_name} ./{target_name}']
-deploy_cmd.after = ['ls']
+[project.back.before]
+dev = ['mvn clean compile package -DskipTests -Pbeta', 'cp ./target/{target_name} ./{target_name}']
+prod = ['ls']
+[project.back.after]
+dev = ["ls"]
+prod = ["ls -l"]

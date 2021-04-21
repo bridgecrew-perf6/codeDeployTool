@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::exit;
 
 use anyhow::{anyhow, Result};
 use dialoguer::{MultiSelect, Select};
 use dialoguer::console::{style, Term};
+
 use crate::config::{Config, Project, Server};
 use crate::utils;
 use crate::utils::SshUtil;
@@ -12,6 +14,7 @@ pub struct DeployUtil {
     pub cmd: utils::CmdUtil,
     pub config: Config,
     pub term: Term,
+    pub key: Option<String>,
 }
 
 impl DeployUtil {
@@ -19,8 +22,7 @@ impl DeployUtil {
         let cmd = utils::CmdUtil::new();
         let config = Config::read_config(config_path).unwrap();
         let term = Term::stdout();
-
-        DeployUtil { cmd, config, term }
+        DeployUtil { cmd, config, term, key: None }
     }
 
     fn login_server(&mut self, host: &String, port: &i64, user: &String, password: &String, key_str: &String) -> Result<SshUtil> {
@@ -51,8 +53,11 @@ impl DeployUtil {
                 ssh.check_dir(target_path)?;
                 ssh.upload_file(file_path.as_path(), target_path.join(&project.target_name).as_path())?;
                 std::fs::remove_file(file_path)?;
-                for cmd in &project.deploy_cmd.after {
-                    ssh.exec(Config::replace_reg(cmd.clone(), &project)?)?;
+
+                let after = project.after.clone();
+
+                for cmd in self.get_cmds(after) {
+                    ssh.exec(cmd)?;
                 }
                 self.term.write_line(&format!("{} 部署完成！", server.name))?;
                 Ok(())
@@ -69,11 +74,36 @@ impl DeployUtil {
         }
 
         self.cmd.change_path(source_dir);
-        for cmd in &project.deploy_cmd.before {
-            self.cmd.exec(Config::replace_reg(cmd.clone(), &project)?)?;
+
+        let before = project.before.clone();
+        for cmd in self.get_cmds(before) {
+            self.cmd.exec(cmd)?;
         }
         self.term.write_line("完成部署前置操作!")?;
         Ok(())
+    }
+
+    fn get_cmds(&self, cmd_map: HashMap<String, Vec<String>>) -> Vec<String> {
+        let keys: Vec<String> = cmd_map.keys().map(|x| x.to_string()).collect();
+        if keys.len() as i32 > 1 {
+            match &self.key {
+                Some(k) => {
+                    cmd_map.get(k).unwrap().clone()
+                }
+                None => {
+                    let key_index = DeployUtil::choose_profile(keys.clone());
+                    let key = keys.get(key_index).unwrap().to_string();
+                    cmd_map.get(&key).unwrap().clone()
+                }
+            }
+        } else {
+            let key = keys.get(0).unwrap().to_string();
+            cmd_map.get(&key).unwrap().clone()
+        }
+    }
+
+    fn choose_profile(keys: Vec<String>) -> usize {
+        Select::new().items(&keys).default(0).with_prompt("请选择").interact().unwrap()
     }
 
     fn choose_project_and_server(projects: &Vec<Project>, servers: &Vec<Server>) -> (usize, Vec<usize>) {
