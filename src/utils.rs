@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
@@ -46,6 +46,18 @@ impl SshUtil {
 
     pub fn login_with_pubkey(&mut self, name: String, private_key: &Path) -> Result<()> {
         Ok(self.session.userauth_pubkey_file(&name, None, private_key, None)?)
+    }
+
+    pub fn login_width_pem(&mut self, name: String, identity_file: String) -> Result<()> {
+        let key = match OpenOptions::new().read(true).open(&identity_file) {
+            Ok(mut fs) => {
+                let mut buffer = String::new();
+                fs.read_to_string(&mut buffer)?;
+                Ok(buffer)
+            }
+            Err(err) => Err(anyhow!(err.to_string()))
+        }?;
+        Ok(self.session.userauth_pubkey_memory(&name, None, &key, None)?)
     }
 
     pub fn exec(&mut self, cmd: String) -> Result<()> {
@@ -119,7 +131,7 @@ impl SshUtil {
 
 #[derive(Clone)]
 pub struct CmdUtil {
-    pub current_dir: String
+    pub current_dir: String,
 }
 
 impl CmdUtil {

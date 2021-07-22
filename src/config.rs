@@ -21,6 +21,7 @@ pub struct Server {
     pub user: String,
     pub password: String,
     pub private_key: String,
+    pub identity_file: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -108,6 +109,7 @@ impl Config {
                         user: Config::get_str(&item, "user"),
                         password: Config::get_str(&item, "password"),
                         private_key: Config::get_str(&item, "private_key"),
+                        identity_file: Config::get_str(&item, "identity_file"),
                     });
                 }
                 for key in project.keys() {
